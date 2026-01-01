@@ -1,38 +1,28 @@
 <script lang="ts">
   import dayjs from "dayjs";
   import { onMount } from "svelte";
-
-  interface ErrorDetail {
-    field: string;
-    message: string;
-  }
-
-  interface StatusResponse {
-    message: string;
-    data: string | null;
-    errors: ErrorDetail | null;
-    timestamp: string;
-  }
+  import { coreEndpointsGetStatus, type OutSchemaStr, type ErrorDetailSchema, type coreEndpointsGetStatusResponse } from "./lib/api/backend-api";
 
   let statusMessage: string = "正在请求后端……";
   let statusData: string | null = null;
-  let statusErrors: ErrorDetail | null = null;
+  let statusErrors: ErrorDetailSchema | null = null;
   let statusTimestamp: string | null = null;
 
   onMount(() => {
-    fetch("/api/status", {
-      headers: {
-        accept: "application/json",
-      },
-    })
-      .then((response: Response) => {
-        return response.json() as Promise<StatusResponse>;
-      })
-      .then((data: StatusResponse) => {
-        statusMessage = data.message;
-        statusData = data.data;
-        statusErrors = data.errors;
-        statusTimestamp = dayjs(data.timestamp).format("YYYY年MM月DD日HH时mm分ss秒");
+    coreEndpointsGetStatus()
+      .then((response: coreEndpointsGetStatusResponse) => {
+        const data: OutSchemaStr = response.data;
+
+        statusMessage = data.message || "未知状态";
+        statusData = data.data || null;
+
+        if (data.errors && Array.isArray(data.errors) && data.errors.length > 0) {
+          statusErrors = data.errors[0];
+        } else {
+          statusErrors = null;
+        }
+
+        statusTimestamp = data.timestamp ? dayjs(data.timestamp).format("YYYY年MM月DD日HH时mm分ss秒") : null;
       })
       .catch((error: Error) => {
         statusMessage = "error";
@@ -61,8 +51,10 @@
   <p class="text-2xl text-red-500">
     <span class="font-bold">错误：</span>
     <span class="underline">{statusErrors.message}</span>
-    <span class="font-bold">字段：</span>
-    <span class="underline">{statusErrors.field}</span>
+    {#if statusErrors.field}
+      <span class="font-bold">字段：</span>
+      <span class="underline">{statusErrors.field}</span>
+    {/if}
   </p>
 {/if}
 
